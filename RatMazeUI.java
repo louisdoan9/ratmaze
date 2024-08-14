@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import java.awt.*;
 import java.util.*;
 
@@ -10,26 +11,36 @@ public class RatMazeUI extends JFrame {
     private JTextField destinationRoomField;
     private JTextArea outputArea;
 
+    // setup UI
     public RatMazeUI() {
         // create 5x2 grid for input fields and button
         JPanel inputPanel = new JPanel(new GridLayout(5, 2));
 
         // create label and corresponding fields
-        inputPanel.add(new JLabel("Rooms (comma-separated):"));
-        inputPanel.add(new JTextField());
-
-        inputPanel.add(new JLabel("Doors (a-b, c-d):"));
-        inputPanel.add(new JTextField());
-
-        inputPanel.add(new JLabel("Start Room"));
-        inputPanel.add(new JTextField());
-
+        inputPanel.add(new JLabel("Rooms (comma-separated, integers):"));
+        roomsField = new JTextField();
+        inputPanel.add(roomsField);
+        
+        inputPanel.add(new JLabel("Doors (format: 1-2, 3-4, ...):"));
+        doorsField = new JTextField();
+        inputPanel.add(doorsField);
+        
+        inputPanel.add(new JLabel("Start Room:"));
+        startRoomField = new JTextField();
+        inputPanel.add(startRoomField);
+        
         inputPanel.add(new JLabel("Destination Room:"));
-        inputPanel.add(new JTextField());
+        destinationRoomField = new JTextField();
+        inputPanel.add(destinationRoomField);
 
-        // create button
+        // create button and corresponding event
         JButton findPathButton = new JButton("Find Path");
-        // TODO create button event
+        findPathButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                findPath();
+            }
+        });
         inputPanel.add(findPathButton);
 
         // add 5x2 grid to UI
@@ -39,6 +50,42 @@ public class RatMazeUI extends JFrame {
         outputArea = new JTextArea();
         outputArea.setEditable(false);
         add(new JScrollPane(outputArea), BorderLayout.CENTER);
+    }
+
+    // handles button click event
+    private void findPath() {
+        outputArea.setText("");
+
+        // try to find path
+        try {
+            // get rooms from rooms field
+            int[] rooms = Arrays.stream(roomsField.getText().split(",")).mapToInt(Integer::parseInt).toArray();
+
+            // get doors from doors field and convert into correct form [[1-2], [3-4]...]
+            String[] doorsInput = doorsField.getText().split(",");
+            int[][] doors = new int[doorsInput.length][2];
+            for (int i = 0; i < doorsInput.length; i++) {
+                String[] door = doorsInput[i].split("-");
+                doors[i][0] = Integer.parseInt(door[0].trim());
+                doors[i][1] = Integer.parseInt(door[1].trim());
+            }
+
+            // get start and destination from corresponding fields
+            int startRoom = Integer.parseInt(startRoomField.getText().trim());
+            int destinationRoom = Integer.parseInt(destinationRoomField.getText().trim());
+
+            // create new RatMaze class with the inputted rooms and doors
+            RatMaze ratMaze = new RatMaze(rooms, doors);
+            // run algorithm
+            String result = ratMaze.ratAlgorithm(startRoom, destinationRoom);
+            System.out.print(result);
+            // output result
+            outputArea.append(result + "\n");
+        }
+        // catch errors in input 
+        catch (Exception e) {
+            outputArea.append("Invalid input. Please check your entries and try again.\n");
+        }
     }
 
     public static void main(String[] args) {
@@ -65,44 +112,45 @@ public class RatMazeUI extends JFrame {
         }
 
         public String ratAlgorithm(int startRoom, int destinationRoom) {
+            StringBuilder output = new StringBuilder();
             int currentRoom = startRoom;
             myImportantPath.push(startRoom);
             iHaveBeenThere(startRoom);
 
-            printStack();
-            System.out.println("---");
+            printStack(output);
+            output.append("---\n");
 
             while (currentRoom != destinationRoom) {
                 int[] nextDoor = whereIsDoor(currentRoom);
                 currentRoom = nextDoor[1]; // current room = room next door led to
-                
+
                 if (wasIThere(currentRoom)) {
                     // if we are in a room we have already been to: backtrack
                     if (myImportantPath.size() < 2) {
                         // if unable to, then we exhausted all options and cannot find a path
-                        return "Unable to find path";
+                        return output.append("Unable to find path").toString();
                     } else {
-                        System.out.println("No more doors or entered already visited room - Backtrack:");
-                        printStack();
+                        output.append("No more doors or entered already visited room - Backtrack:\n");
+                        printStack(output);
 
                         myImportantPath.pop(); // remove that room
                         myImportantPath.pop(); // remove door that led to that room
                         currentRoom = (int) myImportantPath.peek(); // currentRoom = room we were in before this room
 
-                        printStack();
-                        System.out.println("---");
+                        printStack(output);
+                        output.append("---\n");
                     }
                 } else {
                     // else, we entered a new room
                     // add new room to iHaveBeenThere
                     iHaveBeenThere(currentRoom);
-                    
-                    System.out.println("New room:");
-                    printStack();
-                    System.out.println("---");
+
+                    output.append("New room:\n");
+                    printStack(output);
+                    output.append("---\n");
                 }
             }
-            return "Path Found";
+            return output.append("Path Found").toString();
         }
 
         private int[] whereIsDoor(int currentRoom) {
@@ -160,7 +208,7 @@ public class RatMazeUI extends JFrame {
             return false;
         }
         
-        public void printStack() {
+        private void printStack(StringBuilder output) {
             StringBuilder sb = new StringBuilder("[");
             for (Object item : myImportantPath) {
                 if (item instanceof int[]) {
@@ -174,7 +222,7 @@ public class RatMazeUI extends JFrame {
                 sb.setLength(sb.length() - 2);
             }
             sb.append("]");
-            System.out.println("Stack: " + sb.toString());
+            output.append("Stack: ").append(sb.toString()).append("\n");
         }
     }
 }
